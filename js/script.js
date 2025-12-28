@@ -1012,6 +1012,115 @@ console.log('Storage estimation not supported');
 console.log('Debug tools available at window.debugApp');
 
 // ========================================
+// AUDIO BACKGROUND MUSIC
+// ========================================
+
+let isAudioPlaying = false;
+
+function toggleAudio() {
+    const audio = document.getElementById('bgMusic');
+    const toggleBtn = document.getElementById('audioToggle');
+    const icon = toggleBtn.querySelector('.audio-icon');
+    
+    if (isAudioPlaying) {
+        audio.pause();
+        icon.textContent = '🔇';
+        toggleBtn.classList.remove('playing');
+        isAudioPlaying = false;
+    } else {
+        audio.play().then(() => {
+            icon.textContent = '🔊';
+            toggleBtn.classList.add('playing');
+            isAudioPlaying = true;
+        }).catch(error => {
+            console.log('Audio play failed:', error);
+            showNotification('❌ Gagal memutar musik', 'error');
+        });
+    }
+}
+
+// Auto play on first interaction (browser policy)
+document.addEventListener('click', function playOnce() {
+    const audio = document.getElementById('bgMusic');
+    if (!isAudioPlaying) {
+        audio.play().then(() => {
+            const toggleBtn = document.getElementById('audioToggle');
+            const icon = toggleBtn.querySelector('.audio-icon');
+            icon.textContent = '🔊';
+            toggleBtn.classList.add('playing');
+            isAudioPlaying = true;
+        }).catch(() => {
+            // Silent fail, user will manually enable
+        });
+    }
+    document.removeEventListener('click', playOnce);
+}, { once: true });
+
+// ========================================
+// PARTICLES ANIMATION
+// ========================================
+
+const particleEmojis = [
+    { emoji: '💕', class: 'heart' },
+    { emoji: '💖', class: 'heart' },
+    { emoji: '✨', class: 'sparkle' },
+    { emoji: '⭐', class: 'star' },
+    { emoji: '💫', class: 'sparkle' },
+    { emoji: '🌟', class: 'star' },
+    { emoji: '💝', class: 'heart' },
+    { emoji: '💗', class: 'heart' }
+];
+
+function createParticle() {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    
+    // Random emoji
+    const randomParticle = particleEmojis[Math.floor(Math.random() * particleEmojis.length)];
+    particle.textContent = randomParticle.emoji;
+    particle.classList.add(randomParticle.class);
+    
+    // Random position
+    particle.style.left = Math.random() * 100 + '%';
+    
+    // Random size
+    const size = Math.random() * 15 + 15; // 15-30px
+    particle.style.fontSize = size + 'px';
+    
+    // Random duration (speed)
+    const duration = Math.random() * 5 + 5; // 5-10 seconds
+    particle.style.animationDuration = duration + 's';
+    
+    // Random delay
+    particle.style.animationDelay = Math.random() * 2 + 's';
+    
+    // Add to container
+    document.getElementById('particles').appendChild(particle);
+    
+    // Remove after animation
+    setTimeout(() => {
+        particle.remove();
+    }, (duration + 2) * 1000);
+}
+
+// Create particles continuously
+function startParticles() {
+    setInterval(() => {
+        createParticle();
+    }, 300); // Create particle every 300ms
+}
+
+// Initialize particles when page loads
+window.addEventListener('load', () => {
+    startParticles();
+    
+    // Create initial burst
+    for (let i = 0; i < 15; i++) {
+        setTimeout(() => createParticle(), i * 100);
+    }
+});
+
+// ========================================
 // END OF SCRIPT
 // ========================================
 console.log('Script loaded successfully');

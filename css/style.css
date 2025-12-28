@@ -10,10 +10,27 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+    background-image: url('https://unsplash.com/photos/a-city-skyline-with-the-sun-setting-YVitzBXy1bI');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     min-height: 100vh;
     padding: 20px;
     overflow-x: hidden;
+}
+
+/* Overlay untuk readability */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 182, 193, 0.4); /* Pink overlay */
+    backdrop-filter: blur(2px); /* Blur effect */
+    z-index: -1;
 }
 
 /* ========================================
@@ -610,6 +627,113 @@ input[type="file"] {
 
 .notification.info {
     background: #2196F3;
+}
+
+/* ========================================
+   AUDIO PLAYER
+   ======================================== */
+
+.audio-player {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 9999;
+}
+
+.audio-toggle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #ff6b9d 0%, #c06c84 100%);
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    box-shadow: 0 5px 20px rgba(255, 107, 157, 0.4);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 2s infinite;
+}
+
+.audio-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(255, 107, 157, 0.6);
+}
+
+.audio-toggle.playing {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.audio-icon {
+    line-height: 1;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 5px 20px rgba(255, 107, 157, 0.4);
+    }
+    50% {
+        box-shadow: 0 5px 30px rgba(255, 107, 157, 0.7);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .audio-player {
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .audio-toggle {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2em;
+    }
+}
+
+/* ========================================
+   PARTICLES ANIMATION
+   ======================================== */
+
+.particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.particle {
+    position: absolute;
+    font-size: 20px;
+    opacity: 0.8;
+    animation: fall linear infinite;
+    pointer-events: none;
+}
+
+@keyframes fall {
+    to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Different particle styles */
+.particle.heart {
+    color: #ff6b9d;
+}
+
+.particle.star {
+    color: #ffd700;
+}
+
+.particle.sparkle {
+    color: #fff;
 }
 
 /* ========================================

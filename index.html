@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <body>
+    <!-- Particles Container -->
+    <div class="particles" id="particles"></div>
+    
     <div class="container">
         <!-- Header -->
         <div class="header">
@@ -94,6 +98,17 @@
                 <button type="submit" class="submit-btn" id="submitBtn" disabled>Simpan Kenangan ♡</button>
             </form>
         </div>
+    </div>
+
+    <!-- Audio Background Music -->
+    <div class="audio-player">
+        <button class="audio-toggle" id="audioToggle" onclick="toggleAudio()">
+            <span class="audio-icon">🔇</span>
+        </button>
+        <audio id="bgMusic" loop>
+            <source src="asset/audio/Ran - Pandangan Pertama.mp3" type="audio/mpeg">
+            Your browser does not support audio.
+        </audio>
     </div>
 
     <script src="js/script.js"></script>
