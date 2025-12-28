@@ -10,8 +10,8 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    /* Background image */
-    background-image: url('https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=1920');
+    /* Background image - UPDATED PATH */
+    background-image: url('../asset/img/background.jpg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
