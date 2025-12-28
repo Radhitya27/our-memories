@@ -7,48 +7,86 @@ const DB_NAME = 'MemoriesDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'photos';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const FIREBASE_PATH = 'our-memories-photos'; // Firebase path
 
 let db;
 let currentPage = 1;
 let currentFilter = 'all';
 let allPhotos = [];
 let selectedFile = null;
-
-const CLOUD_STORAGE_KEY = 'our-memories-cloud-photos';
 let lastSyncTime = null;
+let isFirebaseReady = false;
 
-// Check if cloud storage available
-function isCloudAvailable() {
-    return typeof window.storage !== 'undefined';
+// ========================================
+// FIREBASE CLOUD SYNC
+// ========================================
+
+// Check if Firebase is initialized
+function checkFirebase() {
+    try {
+        if (typeof firebase !== 'undefined' && firebase.database) {
+            isFirebaseReady = true;
+            return true;
+        }
+    } catch (e) {
+        console.log('Firebase not available');
+    }
+    isFirebaseReady = false;
+    return false;
 }
 
-// Load from cloud
+// Load photos from Firebase
 async function loadFromCloud() {
-    if (!isCloudAvailable()) return null;
+    if (!checkFirebase()) {
+        console.log('Firebase not ready, using local only');
+        return null;
+    }
+
     try {
-        const result = await window.storage.get(CLOUD_STORAGE_KEY, true);
-        if (result?.value) {
+        updateSyncUI('syncing');
+        console.log('Loading from Firebase...');
+        
+        const snapshot = await firebase.database().ref(FIREBASE_PATH).once('value');
+        const data = snapshot.val();
+        
+        if (data && Array.isArray(data)) {
             lastSyncTime = new Date();
             updateSyncUI('synced');
-            return JSON.parse(result.value);
+            console.log(`✅ Loaded ${data.length} photos from Firebase`);
+            return data;
         }
+        
+        updateSyncUI('synced');
+        console.log('No data in Firebase yet');
         return null;
-    } catch (e) {
+    } catch (error) {
+        console.error('❌ Firebase load error:', error);
         updateSyncUI('error');
         return null;
     }
 }
 
-// Save to cloud
+// Save photos to Firebase
 async function saveToCloud(photos) {
-    if (!isCloudAvailable()) return false;
+    if (!checkFirebase()) {
+        console.log('Firebase not ready, skipping cloud save');
+        return false;
+    }
+
     try {
-        await window.storage.set(CLOUD_STORAGE_KEY, JSON.stringify(photos), true);
+        updateSyncUI('syncing');
+        console.log(`Saving ${photos.length} photos to Firebase...`);
+        
+        await firebase.database().ref(FIREBASE_PATH).set(photos);
+        
         lastSyncTime = new Date();
         updateSyncUI('synced');
+        console.log('✅ Saved to Firebase successfully');
         return true;
-    } catch (e) {
+    } catch (error) {
+        console.error('❌ Firebase save error:', error);
         updateSyncUI('error');
+        showNotification('❌ Gagal sync ke cloud!', 'error');
         return false;
     }
 }
@@ -57,28 +95,115 @@ async function saveToCloud(photos) {
 function updateSyncUI(status) {
     const el = document.getElementById('syncStatus');
     if (!el) return;
-    const time = lastSyncTime ? lastSyncTime.toLocaleTimeString() : '';
-    if (status === 'synced') el.innerHTML = `<span style="color: #4CAF50;">☁️ Tersinkron ${time}</span>`;
-    else if (status === 'syncing') el.innerHTML = `<span style="color: #2196F3;">☁️ Syncing...</span>`;
-    else el.innerHTML = `<span style="color: #f44336;">☁️ Offline</span>`;
+    
+    const time = lastSyncTime ? lastSyncTime.toLocaleTimeString('id-ID') : '';
+    
+    if (status === 'synced') {
+        el.innerHTML = `<span style="color: #4CAF50; font-weight: 600;">☁️ Tersinkron ${time ? `• ${time}` : ''}</span>`;
+    } else if (status === 'syncing') {
+        el.innerHTML = `<span style="color: #2196F3; font-weight: 600;">☁️ Syncing...</span>`;
+    } else if (status === 'error') {
+        el.innerHTML = `<span style="color: #f44336; font-weight: 600;">☁️ Offline</span>`;
+    } else {
+        el.innerHTML = `<span style="color: #999; font-weight: 600;">☁️ Local Only</span>`;
+    }
 }
 
-// Manual sync button
+// Manual sync button handler
 async function manualSync() {
-    updateSyncUI('syncing');
-    const cloud = await loadFromCloud();
-    if (cloud) {
-        // Merge data
-        const ids = new Set(allPhotos.map(p => p.id));
-        cloud.forEach(p => { if (!ids.has(p.id)) allPhotos.push(p); });
-        allPhotos.sort((a, b) => b.timestamp - a.timestamp);
-        renderPhotos();
-        updateStorageInfo();
-        showNotification('✅ Sync berhasil!', 'success');
-    } else {
-        await saveToCloud(allPhotos);
-        showNotification('✅ Data di-upload ke cloud!', 'success');
+    if (!checkFirebase()) {
+        showNotification('❌ Firebase belum siap!', 'error');
+        return;
     }
+
+    showNotification('🔄 Syncing...', 'info');
+    
+    try {
+        // Load from Firebase
+        const cloudPhotos = await loadFromCloud();
+        
+        if (cloudPhotos && cloudPhotos.length > 0) {
+            console.log('Merging cloud data with local...');
+            
+            // Merge data (prevent duplicates by ID)
+            const photoMap = new Map();
+            
+            // Add local photos
+            allPhotos.forEach(photo => photoMap.set(photo.id, photo));
+            
+            // Add/update cloud photos
+            cloudPhotos.forEach(photo => photoMap.set(photo.id, photo));
+            
+            // Convert back to array and sort
+            const mergedPhotos = Array.from(photoMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+            
+            // Update local
+            allPhotos = mergedPhotos;
+            
+            // Save merged data back to IndexedDB
+            await clearAllPhotos();
+            for (const photo of mergedPhotos) {
+                await savePhoto(photo);
+            }
+            
+            // Save merged data back to Firebase
+            await saveToCloud(mergedPhotos);
+            
+            renderPhotos();
+            updateStorageInfo();
+            showNotification(`✅ Sync berhasil! Total: ${mergedPhotos.length} kenangan`, 'success');
+        } else {
+            // No cloud data, upload local data to cloud
+            console.log('No cloud data, uploading local to Firebase...');
+            const saved = await saveToCloud(allPhotos);
+            
+            if (saved) {
+                showNotification(`✅ ${allPhotos.length} kenangan di-upload ke cloud!`, 'success');
+            } else {
+                showNotification('❌ Gagal upload ke cloud!', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Sync error:', error);
+        showNotification('❌ Sync gagal! Cek koneksi internet.', 'error');
+    }
+}
+
+// Setup real-time listener (auto-sync when data changes)
+function setupRealtimeSync() {
+    if (!checkFirebase()) {
+        console.log('Firebase not ready, real-time sync disabled');
+        return;
+    }
+
+    console.log('Setting up real-time sync...');
+    
+    firebase.database().ref(FIREBASE_PATH).on('value', (snapshot) => {
+        const cloudData = snapshot.val();
+        
+        if (cloudData && Array.isArray(cloudData)) {
+            // Check if data is different
+            const cloudStr = JSON.stringify(cloudData.sort((a, b) => a.id - b.id));
+            const localStr = JSON.stringify(allPhotos.sort((a, b) => a.id - b.id));
+            
+            if (cloudStr !== localStr) {
+                console.log('🔄 Data changed in cloud, auto-syncing...');
+                
+                // Update local data
+                allPhotos = cloudData.sort((a, b) => b.timestamp - a.timestamp);
+                
+                // Update UI
+                renderPhotos();
+                updateStorageInfo();
+                
+                lastSyncTime = new Date();
+                updateSyncUI('synced');
+            }
+        }
+    }, (error) => {
+        console.error('Real-time sync error:', error);
+        updateSyncUI('error');
+    });
 }
 
 // ========================================
@@ -126,7 +251,7 @@ async function loadPhotos() {
         
         request.onsuccess = () => {
             allPhotos = request.result.sort((a, b) => b.timestamp - a.timestamp);
-            console.log(`Loaded ${allPhotos.length} photos`);
+            console.log(`Loaded ${allPhotos.length} photos from IndexedDB`);
             resolve(allPhotos);
         };
         
@@ -198,22 +323,72 @@ async function clearAllPhotos() {
 async function initApp() {
     try {
         showLoadingState();
+        
+        console.log('=================================');
+        console.log('Our Memories App Starting...');
+        console.log('=================================');
+        
+        // Check Firebase
+        const firebaseAvailable = checkFirebase();
+        
+        // Initialize IndexedDB
         await initDB();
+        
+        // Load from local IndexedDB first
         await loadPhotos();
-        const cloud = await loadFromCloud();
-        if (cloud && cloud.length > 0) {
-            const ids = new Set(allPhotos.map(p => p.id));
-            cloud.forEach(p => { if (!ids.has(p.id)) allPhotos.push(p); });
-            allPhotos.sort((a, b) => b.timestamp - a.timestamp);
+        console.log(`Loaded ${allPhotos.length} photos from local storage`);
+        
+        // Try to load from Firebase and merge
+        if (firebaseAvailable) {
+            console.log('Firebase available, loading from cloud...');
+            const cloudPhotos = await loadFromCloud();
+            
+            if (cloudPhotos && cloudPhotos.length > 0) {
+                console.log(`Found ${cloudPhotos.length} photos in cloud`);
+                
+                // Merge cloud and local data
+                const photoMap = new Map();
+                allPhotos.forEach(photo => photoMap.set(photo.id, photo));
+                cloudPhotos.forEach(photo => photoMap.set(photo.id, photo));
+                
+                const mergedPhotos = Array.from(photoMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+                
+                if (mergedPhotos.length > allPhotos.length) {
+                    console.log(`Merged! New total: ${mergedPhotos.length} photos`);
+                    allPhotos = mergedPhotos;
+                    
+                    // Save merged data to IndexedDB
+                    await clearAllPhotos();
+                    for (const photo of mergedPhotos) {
+                        await savePhoto(photo);
+                    }
+                    
+                    showNotification('☁️ Data cloud berhasil dimuat!', 'success');
+                }
+            } else if (allPhotos.length > 0) {
+                // No cloud data but we have local, upload to cloud
+                console.log('No cloud data, uploading local to Firebase...');
+                await saveToCloud(allPhotos);
+            }
+            
+            // Setup real-time sync
+            setupRealtimeSync();
+        } else {
+            console.log('⚠️ Firebase not available, running in local-only mode');
+            updateSyncUI('offline');
         }
+        
         renderPhotos();
         updateStorageInfo();
         setupDragAndDrop();
         setupFileInput();
         setupKeyboardShortcuts();
-        console.log('App initialized successfully');
+        
+        console.log('✅ App initialized successfully');
+        console.log('Firebase:', firebaseAvailable ? 'Connected 🔥' : 'Offline 📴');
+        
     } catch (error) {
-        console.error('Error initializing app:', error);
+        console.error('❌ Error initializing app:', error);
         showErrorState();
     }
 }
@@ -241,7 +416,6 @@ function showErrorState() {
 function setupDragAndDrop() {
     const uploadArea = document.getElementById('uploadArea');
     
-    // Prevent default drag behaviors
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         uploadArea.addEventListener(eventName, preventDefaults, false);
         document.body.addEventListener(eventName, preventDefaults, false);
@@ -252,7 +426,6 @@ function setupDragAndDrop() {
         e.stopPropagation();
     }
 
-    // Highlight drop area when item is dragged over it
     ['dragenter', 'dragover'].forEach(eventName => {
         uploadArea.addEventListener(eventName, () => {
             uploadArea.classList.add('dragover');
@@ -265,7 +438,6 @@ function setupDragAndDrop() {
         }, false);
     });
 
-    // Handle dropped files
     uploadArea.addEventListener('drop', handleDrop, false);
 }
 
@@ -300,7 +472,6 @@ function handleFileSelect(file) {
     const mediaType = document.getElementById('mediaType').value;
     const isVideo = mediaType === 'video';
     
-    // Validasi tipe file
     if (isVideo && !file.type.startsWith('video/')) {
         showNotification('❌ Pilih file video!', 'error');
         return;
@@ -311,13 +482,11 @@ function handleFileSelect(file) {
         return;
     }
 
-    // Validasi ukuran file
     if (file.size > MAX_FILE_SIZE) {
         showNotification('❌ File terlalu besar! Maksimal 10MB', 'error');
         return;
     }
 
-    // File valid, simpan dan preview
     selectedFile = file;
     
     const reader = new FileReader();
@@ -357,7 +526,6 @@ function showPreview(dataUrl, isVideo, file) {
         `;
     }
     
-    // Enable submit button
     document.getElementById('submitBtn').disabled = false;
 }
 
@@ -381,7 +549,6 @@ function filterPhotos(filter) {
     currentFilter = filter;
     currentPage = 1;
     
-    // Update active tab
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
@@ -398,14 +565,12 @@ function renderPhotos() {
     const grid = document.getElementById('photoGrid');
     const filtered = getFilteredPhotos();
     
-    // Jika tidak ada foto
     if (filtered.length === 0) {
         showEmptyState();
         updatePagination(0);
         return;
     }
 
-    // Hitung pagination
     const totalPages = Math.ceil(filtered.length / PHOTOS_PER_PAGE);
     if (currentPage > totalPages) {
         currentPage = totalPages;
@@ -415,10 +580,8 @@ function renderPhotos() {
     const endIdx = startIdx + PHOTOS_PER_PAGE;
     const pagePhotos = filtered.slice(startIdx, endIdx);
 
-    // Render foto
     grid.innerHTML = pagePhotos.map(photo => createPhotoCard(photo)).join('');
     
-    // Update pagination
     updatePagination(totalPages);
 }
 
@@ -507,7 +670,6 @@ function changePage(direction) {
         currentPage = newPage;
         renderPhotos();
         
-        // Scroll to top smoothly
         window.scrollTo({ 
             top: 0, 
             behavior: 'smooth' 
@@ -569,14 +731,13 @@ function toggleMediaInput() {
         fileInput.accept = 'image/*';
     }
     
-    // Reset preview dan file
     document.getElementById('previewContainer').innerHTML = '';
     document.getElementById('submitBtn').disabled = true;
     selectedFile = null;
 }
 
 // ========================================
-// ADD PHOTO
+// ADD PHOTO (WITH FIREBASE SYNC)
 // ========================================
 
 async function addPhoto(event) {
@@ -612,15 +773,15 @@ async function addPhoto(event) {
                     size: selectedFile.size
                 };
 
+                // Save to IndexedDB
                 await savePhoto(photo);
                 await loadPhotos();
+                
                 closeModal();
                 
-                // Reset ke halaman 1 dan filter "Semua"
                 currentFilter = 'all';
                 currentPage = 1;
                 
-                // Update active tab
                 document.querySelectorAll('.tab-btn').forEach(btn => {
                     btn.classList.remove('active');
                 });
@@ -629,8 +790,14 @@ async function addPhoto(event) {
                 renderPhotos();
                 updateStorageInfo();
                 
-                await saveToCloud(allPhotos);
-                showNotification('✨ Kenangan disimpan & sync ke cloud!', 'success');
+                // Save to Firebase Cloud
+                const cloudSaved = await saveToCloud(allPhotos);
+                
+                if (cloudSaved) {
+                    showNotification('✨ Kenangan disimpan & sync ke cloud!', 'success');
+                } else {
+                    showNotification('✨ Kenangan disimpan lokal!', 'success');
+                }
                 
             } catch (error) {
                 console.error('Error saving photo:', error);
@@ -657,22 +824,22 @@ async function addPhoto(event) {
 }
 
 // ========================================
-// DELETE PHOTO
+// DELETE PHOTO (WITH FIREBASE SYNC)
 // ========================================
 
 async function deletePhoto(id) {
     const photo = allPhotos.find(p => p.id === id);
     const mediaType = photo && photo.type === 'video' ? 'video' : 'foto';
     
-    if (!confirm(`Hapus ${mediaType} ini? 🥺\n\nTindakan ini tidak dapat dibatalkan.`)) {
+    if (!confirm(`Hapus ${mediaType} ini? 🥺\n\nTindakan ini akan menghapus dari semua device!`)) {
         return;
     }
 
     try {
+        // Delete from IndexedDB
         await deletePhotoFromDB(id);
         await loadPhotos();
         
-        // Adjust halaman jika perlu
         const filtered = getFilteredPhotos();
         const totalPages = Math.ceil(filtered.length / PHOTOS_PER_PAGE);
         
@@ -682,9 +849,12 @@ async function deletePhoto(id) {
         
         renderPhotos();
         updateStorageInfo();
-        // TAMBAHKAN baris ini sebelum showNotification:
+        
+        // Sync delete to Firebase
         await saveToCloud(allPhotos);
-        showNotification('🗑️ Foto berhasil dihapus & sync!', 'info');
+        
+        showNotification(`🗑️ ${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} dihapus & sync!`, 'info');
+        
     } catch (error) {
         console.error('Error deleting photo:', error);
         showNotification('❌ Gagal menghapus foto!', 'error');
@@ -729,31 +899,25 @@ function exportData() {
     }
 
     try {
-        // Convert data to JSON
         const dataStr = JSON.stringify(allPhotos, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         
-        // Create download link
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = url;
         
-        // Generate filename with date
+       // ✅ BENAR
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0];
         const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
         link.download = `our-memories-backup-${dateStr}-${timeStr}.json`;
         
-        // Trigger download
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        // Clean up
         URL.revokeObjectURL(url);
         
-        showNotification('💾 Backup berhasil diunduh!', 'success');
-        
+        showNotification(`✅ Backup berhasil! ${allPhotos.length} kenangan di-download`, 'success');
     } catch (error) {
         console.error('Error exporting data:', error);
         showNotification('❌ Gagal membuat backup!', 'error');
@@ -764,207 +928,109 @@ function exportData() {
 // IMPORT DATA (RESTORE)
 // ========================================
 
-async function importData(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Validasi tipe file
-    if (!file.name.endsWith('.json')) {
-        showNotification('❌ File harus berformat .json!', 'error');
-        event.target.value = '';
-        return;
-    }
-
-    const reader = new FileReader();
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
     
-    reader.onload = async (e) => {
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
         try {
-            // Parse JSON
-            const importedData = JSON.parse(e.target.result);
+            const text = await file.text();
+            const importedPhotos = JSON.parse(text);
             
-            // Validasi data
-            if (!Array.isArray(importedData)) {
-                showNotification('❌ Format file tidak valid!', 'error');
-                return;
+            if (!Array.isArray(importedPhotos)) {
+                throw new Error('Invalid backup format');
             }
-
-            if (importedData.length === 0) {
-                showNotification('❌ File backup kosong!', 'error');
-                return;
-            }
-
-            // Konfirmasi import
-            const confirmMsg = `Restore ${importedData.length} kenangan dari backup?\n\n` +
-                              `⚠️ Foto yang sudah ada TIDAK akan dihapus.\n` +
-                              `Foto dari backup akan ditambahkan.\n\n` +
-                              `Lanjutkan?`;
             
-            if (!confirm(confirmMsg)) {
-                event.target.value = '';
-                return;
-            }
-
-            // Import process
-            let successCount = 0;
-            let skipCount = 0;
-            let errorCount = 0;
+            const confirm = window.confirm(
+                `Import ${importedPhotos.length} kenangan?\n\n` +
+                `Data akan digabung dengan data yang sudah ada.`
+            );
             
-            for (const photo of importedData) {
-                try {
-                    // Cek duplikat berdasarkan ID
-                    const existingPhoto = allPhotos.find(p => p.id === photo.id);
-                    if (existingPhoto) {
-                        skipCount++;
-                        continue;
-                    }
-
-                    // Validasi required fields
-                    if (!photo.id || !photo.data) {
-                        skipCount++;
-                        continue;
-                    }
-
-                    // Ensure timestamp exists
-                    if (!photo.timestamp) {
-                        photo.timestamp = photo.id || Date.now();
-                    }
-
-                    // Ensure size exists (approximate if not available)
-                    if (!photo.size) {
-                        photo.size = Math.floor(photo.data.length * 0.75); // rough estimate
-                    }
-
-                    await savePhoto(photo);
-                    successCount++;
-                    
-                } catch (error) {
-                    console.error('Error importing photo:', photo.id, error);
-                    errorCount++;
-                }
-            }
-
-            // Reload data
-            await loadPhotos();
+            if (!confirm) return;
             
-            // Reset view
-            currentPage = 1;
+            // Merge dengan data existing
+            const photoMap = new Map();
+            allPhotos.forEach(photo => photoMap.set(photo.id, photo));
+            importedPhotos.forEach(photo => photoMap.set(photo.id, photo));
+            
+            const mergedPhotos = Array.from(photoMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+            
+            // Clear dan save semua
+            await clearAllPhotos();
+            for (const photo of mergedPhotos) {
+                await savePhoto(photo);
+            }
+            
+            allPhotos = mergedPhotos;
+            
+            // Sync ke Firebase
+            await saveToCloud(allPhotos);
+            
             currentFilter = 'all';
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector('.tab-btn').classList.add('active');
+            currentPage = 1;
             
             renderPhotos();
             updateStorageInfo();
             
-            // Show result
-            let message = `✅ Restore selesai!\n\n`;
-            message += `📥 Berhasil: ${successCount} kenangan\n`;
-            if (skipCount > 0) {
-                message += `⏭️ Dilewati: ${skipCount} (duplikat/tidak valid)\n`;
-            }
-            if (errorCount > 0) {
-                message += `❌ Error: ${errorCount}\n`;
-            }
-            
-            alert(message);
-            showNotification('📥 Restore berhasil!', 'success');
+            showNotification(`✅ Import berhasil! Total: ${mergedPhotos.length} kenangan`, 'success');
             
         } catch (error) {
-            console.error('Error parsing import file:', error);
-            showNotification('❌ Gagal membaca file backup! File mungkin rusak.', 'error');
+            console.error('Error importing data:', error);
+            showNotification('❌ File backup tidak valid!', 'error');
         }
     };
-
-    reader.onerror = () => {
-        showNotification('❌ Error membaca file!', 'error');
-    };
-
-    reader.readAsText(file);
     
-    // Reset file input
-    event.target.value = '';
+    input.click();
 }
 
 // ========================================
-// NOTIFICATION SYSTEM
+// CLEAR ALL DATA
 // ========================================
 
-function showNotification(message, type = 'info') {
-    // Remove existing notification
-    const existing = document.querySelector('.notification');
-    if (existing) {
-        existing.remove();
+async function clearAllData() {
+    if (allPhotos.length === 0) {
+        showNotification('❌ Tidak ada data untuk dihapus!', 'error');
+        return;
     }
 
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    notification.style.animation = 'slideInRight 0.3s ease-out';
+    const confirm = window.confirm(
+        `⚠️ PERINGATAN!\n\n` +
+        `Hapus SEMUA ${allPhotos.length} kenangan?\n\n` +
+        `Tindakan ini akan menghapus semua foto & video dari semua device dan TIDAK BISA dibatalkan!\n\n` +
+        `Pastikan Anda sudah backup data!`
+    );
     
-    document.body.appendChild(notification);
-
-    // Auto remove after 3 seconds
-    setTimeout(() => {
-        notification.style.animation = 'slideOutRight 0.3s ease-out';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 300);
-    }, 3000);
+    if (!confirm) return;
     
-    // Click to dismiss
-    notification.addEventListener('click', () => {
-        notification.style.animation = 'slideOutRight 0.3s ease-out';
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 300);
-    });
-}
+    const doubleConfirm = window.confirm(
+        `Yakin 100% ingin menghapus semua kenangan? 🥺`
+    );
+    
+    if (!doubleConfirm) return;
 
-// ========================================
-// KEYBOARD SHORTCUTS
-// ========================================
-
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        const modal = document.getElementById('addModal');
-        const isModalOpen = modal.classList.contains('active');
+    try {
+        await clearAllPhotos();
+        allPhotos = [];
         
-        // ESC - Close modal
-        if (e.key === 'Escape' && isModalOpen) {
-            closeModal();
-            return;
-        }
+        // Clear Firebase
+        await saveToCloud([]);
         
-        // Don't trigger shortcuts if modal is open or user is typing
-        if (isModalOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            return;
-        }
+        currentFilter = 'all';
+        currentPage = 1;
         
-        // Arrow Left - Previous page
-        if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            changePage(-1);
-        }
+        renderPhotos();
+        updateStorageInfo();
         
-        // Arrow Right - Next page
-        if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            changePage(1);
-        }
+        showNotification('🗑️ Semua data berhasil dihapus!', 'info');
         
-        // N - New photo (open modal)
-        if (e.key === 'n' || e.key === 'N') {
-            e.preventDefault();
-            openModal();
-        }
-    });
+    } catch (error) {
+        console.error('Error clearing data:', error);
+        showNotification('❌ Gagal menghapus data!', 'error');
+    }
 }
 
 // ========================================
@@ -977,225 +1043,75 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function formatDate(timestamp) {
-    const date = new Date(timestamp);
-    const options = { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    };
-    return date.toLocaleDateString('id-ID', options);
-}
-
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
     
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    document.body.appendChild(notification);
     
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
 }
 
 // ========================================
-// ERROR HANDLING
+// KEYBOARD SHORTCUTS
 // ========================================
 
-window.addEventListener('error', (e) => {
-    console.error('Global error:', e.error);
-});
-
-window.addEventListener('unhandledrejection', (e) => {
-    console.error('Unhandled promise rejection:', e.reason);
-});
-
-// ========================================
-// PAGE VISIBILITY
-// ========================================
-
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-        // Page is visible again, reload photos if needed
-        if (db) {
-            loadPhotos().then(() => {
-                renderPhotos();
-                updateStorageInfo();
-            }).catch(error => {
-                console.error('Error reloading photos:', error);
-            });
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // ESC to close modal
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('addModal');
+            if (modal.classList.contains('active')) {
+                closeModal();
+            }
         }
-    }
-});
+        
+        // Ctrl/Cmd + K to open add modal
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            openModal();
+        }
+        
+        // Arrow keys for pagination
+        if (!document.getElementById('addModal').classList.contains('active')) {
+            if (e.key === 'ArrowLeft') {
+                const prevBtn = document.getElementById('prevBtn');
+                if (!prevBtn.disabled) changePage(-1);
+            }
+            if (e.key === 'ArrowRight') {
+                const nextBtn = document.getElementById('nextBtn');
+                if (!nextBtn.disabled) changePage(1);
+            }
+        }
+    });
+}
 
 // ========================================
-// PREVENT DATA LOSS
+// CLICK OUTSIDE TO CLOSE MODAL
 // ========================================
 
-window.addEventListener('beforeunload', (e) => {
+document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('addModal');
     
-    // Warn if user has unsaved changes in modal
-    if (modal.classList.contains('active') && selectedFile) {
-        e.preventDefault();
-        e.returnValue = 'Anda memiliki foto yang belum disimpan. Yakin ingin keluar?';
-        return e.returnValue;
-    }
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
 });
 
 // ========================================
-// INITIALIZE APP ON LOAD
+// START APP
 // ========================================
 
-window.addEventListener('load', () => {
-    console.log('=================================');
-    console.log('Our Memories App Starting...');
-    console.log('=================================');
-    initApp();
-});
-// ========================================
-// DEVELOPMENT HELPERS (Optional)
-// ========================================
-
-window.debugApp = {
-getAllPhotos: () => allPhotos,
-getCurrentFilter: () => currentFilter,
-getCurrentPage: () => currentPage,
-clearAllData: async () => {
-if (confirm('DANGER! Hapus semua data?')) {
-await clearAllPhotos();
-await loadPhotos();
-renderPhotos();
-updateStorageInfo();
-console.log('All data cleared');
-}
-},
-getStorageEstimate: async () => {
-if (navigator.storage && navigator.storage.estimate) {
-const estimate = await navigator.storage.estimate();
-console.log('Storage estimate:', {
-usage: formatFileSize(estimate.usage),
-quota: formatFileSize(estimate.quota),
-usagePercent: ((estimate.usage / estimate.quota) * 100).toFixed(2) + '%'
-});
-} else {
-console.log('Storage estimation not supported');
-}
-}
-};
-console.log('Debug tools available at window.debugApp');
-
-// ========================================
-// AUDIO BACKGROUND MUSIC
-// ========================================
-
-let isAudioPlaying = false;
-
-function toggleAudio() {
-    const audio = document.getElementById('bgMusic');
-    const toggleBtn = document.getElementById('audioToggle');
-    const icon = toggleBtn.querySelector('.audio-icon');
-    
-    if (isAudioPlaying) {
-        audio.pause();
-        icon.textContent = '🔇';
-        toggleBtn.classList.remove('playing');
-        isAudioPlaying = false;
-    } else {
-        audio.play().then(() => {
-            icon.textContent = '🔊';
-            toggleBtn.classList.add('playing');
-            isAudioPlaying = true;
-        }).catch(error => {
-            console.log('Audio play failed:', error);
-            showNotification('❌ Gagal memutar musik', 'error');
-        });
-    }
-}
-
-// Auto play on first interaction (browser policy)
-document.addEventListener('click', function playOnce() {
-    const audio = document.getElementById('bgMusic');
-    if (!isAudioPlaying) {
-        audio.play().then(() => {
-            const toggleBtn = document.getElementById('audioToggle');
-            const icon = toggleBtn.querySelector('.audio-icon');
-            icon.textContent = '🔊';
-            toggleBtn.classList.add('playing');
-            isAudioPlaying = true;
-        }).catch(() => {
-            // Silent fail, user will manually enable
-        });
-    }
-    document.removeEventListener('click', playOnce);
-}, { once: true });
-
-// ========================================
-// PARTICLES ANIMATION
-// ========================================
-
-const particleEmojis = [
-    { emoji: '💕', class: 'heart' },
-    { emoji: '💖', class: 'heart' },
-    { emoji: '✨', class: 'sparkle' },
-    { emoji: '⭐', class: 'star' },
-    { emoji: '💫', class: 'sparkle' },
-    { emoji: '🌟', class: 'star' },
-    { emoji: '💝', class: 'heart' },
-    { emoji: '💗', class: 'heart' }
-];
-
-function createParticle() {
-    const particle = document.createElement('div');
-    particle.className = 'particle';
-    
-    // Random emoji
-    const randomParticle = particleEmojis[Math.floor(Math.random() * particleEmojis.length)];
-    particle.textContent = randomParticle.emoji;
-    particle.classList.add(randomParticle.class);
-    
-    // Random position
-    particle.style.left = Math.random() * 100 + '%';
-    
-    // Random size
-    const size = Math.random() * 15 + 15; // 15-30px
-    particle.style.fontSize = size + 'px';
-    
-    // Random duration (speed)
-    const duration = Math.random() * 5 + 5; // 5-10 seconds
-    particle.style.animationDuration = duration + 's';
-    
-    // Random delay
-    particle.style.animationDelay = Math.random() * 2 + 's';
-    
-    // Add to container
-    document.getElementById('particles').appendChild(particle);
-    
-    // Remove after animation
-    setTimeout(() => {
-        particle.remove();
-    }, (duration + 2) * 1000);
-}
-
-// Create particles continuously
-function startParticles() {
-    setInterval(() => {
-        createParticle();
-    }, 300); // Create particle every 300ms
-}
-
-// Initialize particles when page loads
-window.addEventListener('load', () => {
-    startParticles();
-    
-    // Create initial burst
-    for (let i = 0; i < 15; i++) {
-        setTimeout(() => createParticle(), i * 100);
-    }
-});
-
-// ========================================
-// END OF SCRIPT
-// ========================================
-console.log('Script loaded successfully');
+document.addEventListener('DOMContentLoaded', initApp);
