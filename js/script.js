@@ -14,6 +14,73 @@ let currentFilter = 'all';
 let allPhotos = [];
 let selectedFile = null;
 
+const CLOUD_STORAGE_KEY = 'our-memories-cloud-photos';
+let lastSyncTime = null;
+
+// Check if cloud storage available
+function isCloudAvailable() {
+    return typeof window.storage !== 'undefined';
+}
+
+// Load from cloud
+async function loadFromCloud() {
+    if (!isCloudAvailable()) return null;
+    try {
+        const result = await window.storage.get(CLOUD_STORAGE_KEY, true);
+        if (result?.value) {
+            lastSyncTime = new Date();
+            updateSyncUI('synced');
+            return JSON.parse(result.value);
+        }
+        return null;
+    } catch (e) {
+        updateSyncUI('error');
+        return null;
+    }
+}
+
+// Save to cloud
+async function saveToCloud(photos) {
+    if (!isCloudAvailable()) return false;
+    try {
+        await window.storage.set(CLOUD_STORAGE_KEY, JSON.stringify(photos), true);
+        lastSyncTime = new Date();
+        updateSyncUI('synced');
+        return true;
+    } catch (e) {
+        updateSyncUI('error');
+        return false;
+    }
+}
+
+// Update sync status UI
+function updateSyncUI(status) {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+    const time = lastSyncTime ? lastSyncTime.toLocaleTimeString() : '';
+    if (status === 'synced') el.innerHTML = `<span style="color: #4CAF50;">☁️ Tersinkron ${time}</span>`;
+    else if (status === 'syncing') el.innerHTML = `<span style="color: #2196F3;">☁️ Syncing...</span>`;
+    else el.innerHTML = `<span style="color: #f44336;">☁️ Offline</span>`;
+}
+
+// Manual sync button
+async function manualSync() {
+    updateSyncUI('syncing');
+    const cloud = await loadFromCloud();
+    if (cloud) {
+        // Merge data
+        const ids = new Set(allPhotos.map(p => p.id));
+        cloud.forEach(p => { if (!ids.has(p.id)) allPhotos.push(p); });
+        allPhotos.sort((a, b) => b.timestamp - a.timestamp);
+        renderPhotos();
+        updateStorageInfo();
+        showNotification('✅ Sync berhasil!', 'success');
+    } else {
+        await saveToCloud(allPhotos);
+        showNotification('✅ Data di-upload ke cloud!', 'success');
+    }
+}
+
 // ========================================
 // INDEXEDDB INITIALIZATION
 // ========================================
@@ -133,6 +200,12 @@ async function initApp() {
         showLoadingState();
         await initDB();
         await loadPhotos();
+        const cloud = await loadFromCloud();
+        if (cloud && cloud.length > 0) {
+            const ids = new Set(allPhotos.map(p => p.id));
+            cloud.forEach(p => { if (!ids.has(p.id)) allPhotos.push(p); });
+            allPhotos.sort((a, b) => b.timestamp - a.timestamp);
+        }
         renderPhotos();
         updateStorageInfo();
         setupDragAndDrop();
@@ -556,7 +629,8 @@ async function addPhoto(event) {
                 renderPhotos();
                 updateStorageInfo();
                 
-                showNotification('✨ Kenangan berhasil disimpan!', 'success');
+                await saveToCloud(allPhotos);
+                showNotification('✨ Kenangan disimpan & sync ke cloud!', 'success');
                 
             } catch (error) {
                 console.error('Error saving photo:', error);
@@ -608,8 +682,9 @@ async function deletePhoto(id) {
         
         renderPhotos();
         updateStorageInfo();
-        showNotification(`🗑️ ${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} berhasil dihapus`, 'info');
-        
+        // TAMBAHKAN baris ini sebelum showNotification:
+        await saveToCloud(allPhotos);
+        showNotification('🗑️ Foto berhasil dihapus & sync!', 'info');
     } catch (error) {
         console.error('Error deleting photo:', error);
         showNotification('❌ Gagal menghapus foto!', 'error');
