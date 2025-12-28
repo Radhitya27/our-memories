@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <body>
     <!-- Particles Container -->
     <div class="particles" id="particles"></div>
     
@@ -15,7 +16,6 @@
         <div class="header">
             <h1>Our Memories ♡</h1>
             <p>Kenangan Kita yang Terus Bertambah</p>
-            <!-- TAMBAHAN: Status Sync -->
             <p id="syncStatus" style="font-size: 0.9em; margin-top: 5px;"></p>
         </div>
 
@@ -28,9 +28,9 @@
                 <button class="tab-btn" onclick="filterPhotos('video')">Video 🎬</button>
             </div>
             <div class="btn-group">
-                <!-- TAMBAHAN: Tombol Sync -->
-                <button class="add-btn" onclick="manualSync()" style="background: linear-gradient(135deg, #2196F3 0%, #00BCD4 100%);">☁️ Sync</button>
-                
+                <!-- Di dalam div class="btn-group", tambahkan ini sebelum tombol "+ Tambah Foto" -->
+                <button class="add-btn" onclick="manualSync()" style="background: linear-gradient(135deg, #2196F3 0%, #00BCD4 100%);">
+                    ☁️ Sync</button>
                 <button class="add-btn" onclick="openModal()">+ Tambah Foto</button>
                 <button class="export-btn" onclick="exportData()">💾 Backup</button>
                 <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
@@ -115,30 +115,6 @@
         </audio>
     </div>
 
-    <!-- Firebase SDK - TAMBAHKAN INI -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-
-    <!-- Firebase Config - GANTI DENGAN CONFIG ANDA! -->
-    <script>
-    const firebaseConfig = {
-    apiKey: "AIzaSyDL3TOWux2zlaPCbqQ3EJwNtVvwMlDA4Gs",
-    authDomain: "our-memories-5eeb0.firebaseapp.com",
-    databaseURL: "https://our-memories-5eeb0-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "our-memories-5eeb0",
-    storageBucket: "our-memories-5eeb0.firebasestorage.app",
-    messagingSenderId: "833240545130",
-    appId: "1:833240545130:web:f810bad1aaec3ed28fd713",
-    measurementId: "G-X1LCHTYQGS"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
-    console.log('Firebase initialized successfully! 🔥');
-    </script>
-
-    <!-- Your App Script -->
     <script src="js/script.js"></script>
 </body>
 </html>
