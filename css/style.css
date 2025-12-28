@@ -11,7 +11,7 @@
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     /* Background image - UPDATED PATH */
-    background-image: url('../asset/img/background.jpg');
+    background-image: url('../asset/img/Background.jpg');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
