@@ -8,11 +8,13 @@
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
             <h1>Our Memories ♡</h1>
             <p>Kenangan Kita yang Terus Bertambah</p>
         </div>
 
+        <!-- Controls Section -->
         <div class="controls">
             <div class="filter-tabs">
                 <button class="tab-btn active" onclick="filterPhotos('all')">Semua ✨</button>
@@ -20,27 +22,40 @@
                 <button class="tab-btn" onclick="filterPhotos('together')">Bersama 👫</button>
                 <button class="tab-btn" onclick="filterPhotos('video')">Video 🎬</button>
             </div>
-            <button class="add-btn" onclick="openModal()">+ Tambah Foto</button>
+            <div class="btn-group">
+                <button class="add-btn" onclick="openModal()">+ Tambah Foto</button>
+                <button class="export-btn" onclick="exportData()">💾 Backup</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+                <button class="import-btn" onclick="document.getElementById('importFile').click()">📥 Restore</button>
+            </div>
         </div>
 
+        <!-- Main Booklet -->
         <div class="booklet">
-            <div class="photo-grid" id="photoGrid"></div>
+            <div class="photo-grid" id="photoGrid">
+                <div class="loading">Memuat foto</div>
+            </div>
             
+            <!-- Pagination -->
             <div class="pagination">
                 <button class="page-btn" id="prevBtn" onclick="changePage(-1)">← Prev</button>
-                <span class="page-info" id="pageInfo">Page 1</span>
+                <span class="page-info" id="pageInfo">Halaman 1</span>
                 <button class="page-btn" id="nextBtn" onclick="changePage(1)">Next →</button>
             </div>
+            
+            <!-- Storage Info -->
+            <div class="storage-info" id="storageInfo"></div>
         </div>
     </div>
 
-    <!-- Modal Add Photo -->
+    <!-- Modal untuk Tambah Foto -->
     <div class="modal" id="addModal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">×</span>
             <h2 style="margin-bottom: 20px; color: #ff6b9d;">Tambah Kenangan Baru</h2>
             
             <form id="addPhotoForm" onsubmit="addPhoto(event)">
+                <!-- Media Type Selection -->
                 <div class="form-group">
                     <label>Tipe Media</label>
                     <select id="mediaType" onchange="toggleMediaInput()">
@@ -49,13 +64,19 @@
                     </select>
                 </div>
 
+                <!-- File Upload Area -->
                 <div class="form-group">
-                    <label>URL Foto/Video</label>
-                    <input type="url" id="mediaUrl" placeholder="https://example.com/photo.jpg" required>
-                    <small style="color: #999;">Paste link foto/video dari Google Drive, Imgur, dll</small>
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">📸</div>
+                        <p><strong>Klik untuk pilih foto</strong></p>
+                        <p style="font-size: 0.9em; color: #999; margin-top: 5px;">atau drag & drop foto di sini</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*,video/*">
+                    <div id="previewContainer" class="preview-container"></div>
                 </div>
 
-                <div class="form-group">
+                <!-- Category Selection (hidden for videos) -->
+                <div class="form-group" id="categoryGroup">
                     <label>Kategori</label>
                     <select id="category">
                         <option value="her">Foto Dia 💕</option>
@@ -63,12 +84,14 @@
                     </select>
                 </div>
 
+                <!-- Caption -->
                 <div class="form-group">
                     <label>Caption</label>
                     <textarea id="caption" rows="3" placeholder="Tulis caption lucu atau romantis..."></textarea>
                 </div>
 
-                <button type="submit" class="submit-btn">Simpan Kenangan ♡</button>
+                <!-- Submit Button -->
+                <button type="submit" class="submit-btn" id="submitBtn" disabled>Simpan Kenangan ♡</button>
             </form>
         </div>
     </div>

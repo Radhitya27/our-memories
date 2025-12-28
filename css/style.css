@@ -1,3 +1,7 @@
+/* ========================================
+   RESET & GLOBAL STYLES
+   ======================================== */
+
 * {
     margin: 0;
     padding: 0;
@@ -12,10 +16,18 @@ body {
     overflow-x: hidden;
 }
 
+/* ========================================
+   CONTAINER
+   ======================================== */
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
 }
+
+/* ========================================
+   HEADER
+   ======================================== */
 
 .header {
     text-align: center;
@@ -34,6 +46,10 @@ body {
     font-size: 1.2em;
     opacity: 0.9;
 }
+
+/* ========================================
+   CONTROLS SECTION
+   ======================================== */
 
 .controls {
     background: white;
@@ -62,6 +78,12 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     font-weight: 600;
+    font-size: 0.95em;
+}
+
+.tab-btn:hover {
+    background: #e0e0e0;
+    transform: translateY(-1px);
 }
 
 .tab-btn.active {
@@ -69,21 +91,43 @@ body {
     color: white;
 }
 
-.add-btn {
+.btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.add-btn, .export-btn, .import-btn {
     padding: 10px 25px;
     border: none;
     border-radius: 25px;
-    background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
     color: white;
     cursor: pointer;
     font-weight: bold;
     transition: all 0.3s ease;
+    font-size: 0.95em;
 }
 
-.add-btn:hover {
+.add-btn {
+    background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
+}
+
+.export-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.import-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.add-btn:hover, .export-btn:hover, .import-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
+
+/* ========================================
+   BOOKLET
+   ======================================== */
 
 .booklet {
     background: white;
@@ -95,21 +139,9 @@ body {
     animation: slideUp 0.6s ease-out;
 }
 
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
+/* ========================================
+   PHOTO GRID
+   ======================================== */
 
 .photo-grid {
     display: grid;
@@ -127,17 +159,6 @@ body {
     cursor: pointer;
     position: relative;
     animation: popIn 0.4s ease-out;
-}
-
-@keyframes popIn {
-    from {
-        opacity: 0;
-        transform: scale(0.8);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
 }
 
 .photo-card:hover {
@@ -167,18 +188,6 @@ body {
     object-fit: cover;
 }
 
-.photo-placeholder {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 3em;
-}
-
 .photo-caption {
     margin-top: 8px;
     font-size: 0.9em;
@@ -189,7 +198,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 5px;
 }
+
+/* ========================================
+   VIDEO CARDS
+   ======================================== */
 
 .video-card {
     grid-column: span 2;
@@ -212,6 +226,42 @@ body {
     height: 100%;
     object-fit: cover;
 }
+
+/* ========================================
+   DELETE BUTTON
+   ======================================== */
+
+.delete-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(255,0,0,0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 1.2em;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.photo-card:hover .delete-btn {
+    display: flex;
+}
+
+.delete-btn:hover {
+    background: rgba(255,0,0,1);
+    transform: scale(1.1);
+}
+
+/* ========================================
+   PAGINATION
+   ======================================== */
 
 .pagination {
     display: flex;
@@ -248,6 +298,22 @@ body {
     font-weight: 600;
 }
 
+/* ========================================
+   STORAGE INFO
+   ======================================== */
+
+.storage-info {
+    text-align: center;
+    color: #666;
+    font-size: 0.9em;
+    margin-top: 20px;
+    padding: 10px;
+}
+
+/* ========================================
+   MODAL
+   ======================================== */
+
 .modal {
     display: none;
     position: fixed;
@@ -278,17 +344,6 @@ body {
     animation: modalSlideIn 0.3s ease-out;
 }
 
-@keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-50px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 .close-modal {
     position: absolute;
     top: 15px;
@@ -297,11 +352,16 @@ body {
     cursor: pointer;
     color: #999;
     transition: color 0.3s;
+    line-height: 1;
 }
 
 .close-modal:hover {
     color: #ff6b9d;
 }
+
+/* ========================================
+   FORM
+   ======================================== */
 
 .form-group {
     margin-bottom: 20px;
@@ -314,7 +374,6 @@ body {
     color: #333;
 }
 
-.form-group input,
 .form-group select,
 .form-group textarea {
     width: 100%;
@@ -323,14 +382,60 @@ body {
     border-radius: 10px;
     font-size: 1em;
     transition: border-color 0.3s;
+    font-family: inherit;
 }
 
-.form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
     border-color: #ff6b9d;
 }
+
+/* ========================================
+   UPLOAD AREA
+   ======================================== */
+
+.upload-area {
+    border: 3px dashed #ddd;
+    border-radius: 15px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.upload-area:hover {
+    border-color: #ff6b9d;
+    background: #fff5f8;
+}
+
+.upload-area.dragover {
+    border-color: #ff6b9d;
+    background: #fff5f8;
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 3em;
+    margin-bottom: 10px;
+}
+
+.preview-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.preview-image {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+/* ========================================
+   SUBMIT BUTTON
+   ======================================== */
 
 .submit-btn {
     width: 100%;
@@ -345,37 +450,19 @@ body {
     transition: all 0.3s ease;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-.delete-btn {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: rgba(255,0,0,0.8);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    cursor: pointer;
-    font-size: 1.2em;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+.submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
-.photo-card:hover .delete-btn {
-    display: flex;
-}
-
-.delete-btn:hover {
-    background: rgba(255,0,0,1);
-    transform: scale(1.1);
-}
+/* ========================================
+   EMPTY STATE
+   ======================================== */
 
 .empty-state {
     text-align: center;
@@ -388,10 +475,154 @@ body {
     margin-bottom: 20px;
 }
 
-/* Responsive Design */
+.empty-state h3 {
+    margin-bottom: 10px;
+    color: #666;
+}
+
+/* ========================================
+   LOADING STATE
+   ======================================== */
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+    font-size: 1.1em;
+}
+
+.loading::after {
+    content: '...';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+/* ========================================
+   UTILITY
+   ======================================== */
+
+input[type="file"] {
+    display: none;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes popIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes dots {
+    0%, 20% {
+        content: '.';
+    }
+    40% {
+        content: '..';
+    }
+    60%, 100% {
+        content: '...';
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+}
+
+/* ========================================
+   NOTIFICATION
+   ======================================== */
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 25px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    z-index: 10000;
+    font-weight: 600;
+    color: white;
+}
+
+.notification.success {
+    background: #4CAF50;
+}
+
+.notification.error {
+    background: #f44336;
+}
+
+.notification.info {
+    background: #2196F3;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
 @media (max-width: 768px) {
     .header h1 {
         font-size: 2em;
+    }
+
+    .header p {
+        font-size: 1em;
     }
 
     .booklet {
@@ -411,14 +642,45 @@ body {
         flex-direction: column;
     }
 
-    .filter-tabs {
+    .filter-tabs, .btn-group {
         width: 100%;
         justify-content: center;
+    }
+
+    .modal-content {
+        padding: 20px;
+    }
+
+    .upload-area {
+        padding: 30px 20px;
     }
 }
 
 @media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+
+    .header h1 {
+        font-size: 1.8em;
+    }
+
     .photo-grid {
         grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .tab-btn, .add-btn, .export-btn, .import-btn {
+        padding: 8px 16px;
+        font-size: 0.9em;
+    }
+
+    .booklet {
+        padding: 15px;
+    }
+
+    .page-btn {
+        padding: 10px 20px;
+        font-size: 0.9em;
     }
 }
