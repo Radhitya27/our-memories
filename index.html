@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Memories ♡</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Our Memories ♡</h1>
+            <p>Kenangan Kita yang Terus Bertambah</p>
+        </div>
+
+        <div class="controls">
+            <div class="filter-tabs">
+                <button class="tab-btn active" onclick="filterPhotos('all')">Semua ✨</button>
+                <button class="tab-btn" onclick="filterPhotos('her')">Dia 💕</button>
+                <button class="tab-btn" onclick="filterPhotos('together')">Bersama 👫</button>
+                <button class="tab-btn" onclick="filterPhotos('video')">Video 🎬</button>
+            </div>
+            <button class="add-btn" onclick="openModal()">+ Tambah Foto</button>
+        </div>
+
+        <div class="booklet">
+            <div class="photo-grid" id="photoGrid"></div>
+            
+            <div class="pagination">
+                <button class="page-btn" id="prevBtn" onclick="changePage(-1)">← Prev</button>
+                <span class="page-info" id="pageInfo">Page 1</span>
+                <button class="page-btn" id="nextBtn" onclick="changePage(1)">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Add Photo -->
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">×</span>
+            <h2 style="margin-bottom: 20px; color: #ff6b9d;">Tambah Kenangan Baru</h2>
+            
+            <form id="addPhotoForm" onsubmit="addPhoto(event)">
+                <div class="form-group">
+                    <label>Tipe Media</label>
+                    <select id="mediaType" onchange="toggleMediaInput()">
+                        <option value="photo">Foto 📷</option>
+                        <option value="video">Video 🎥</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>URL Foto/Video</label>
+                    <input type="url" id="mediaUrl" placeholder="https://example.com/photo.jpg" required>
+                    <small style="color: #999;">Paste link foto/video dari Google Drive, Imgur, dll</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Kategori</label>
+                    <select id="category">
+                        <option value="her">Foto Dia 💕</option>
+                        <option value="together">Foto Bersama 👫</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Caption</label>
+                    <textarea id="caption" rows="3" placeholder="Tulis caption lucu atau romantis..."></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">Simpan Kenangan ♡</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
